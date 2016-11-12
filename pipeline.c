@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-// #define NDEBUG
+#define NDEBUG
 
 
 static const char* SEP = "|";
