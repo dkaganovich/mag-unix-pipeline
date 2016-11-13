@@ -11,10 +11,10 @@
 
 static const char* SEP = "|";
 
-int prevalidate_args(int argc, char*** argv, int* cps_cnt);
-int parse_args(int argc, char*** argv, char**** cps_argv);
-int launch_pipeline(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps_pid);
-void cleanup(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps_pid);
+int prevalidate_args(int argc, char** argv, int* cps_cnt);
+int parse_args(int argc, char** argv, char*** cps_argv);
+int launch_pipeline(int cps_cnt, char*** cps_argv, int** pipe_fds, pid_t* cps_pid);
+void cleanup(int cps_cnt, char*** cps_argv, int** pipe_fds, pid_t* cps_pid);
 void print_usage();
 
 
@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 {
     // prevalidate args & get number of child processes to be launched
     int cps_cnt;
-    if (prevalidate_args(argc, &argv, &cps_cnt) == 1) {
+    if (prevalidate_args(argc, argv, &cps_cnt) == 1) {
         print_usage();
         fprintf(stderr, "%s\n", "Invalid arguments");
         return 2;
@@ -35,9 +35,9 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (parse_args(argc, &argv, &cps_argv) == 1) {
+    if (parse_args(argc, argv, cps_argv) == 1) {
         fprintf(stderr, "%s\n", "Failed to parse arguments");
-        cleanup(cps_cnt, &cps_argv, NULL, NULL);
+        cleanup(cps_cnt, cps_argv, NULL, NULL);
         return 1;
     }
 
@@ -45,14 +45,14 @@ int main(int argc, char** argv)
     int** pipe_fds = (int**)malloc(sizeof(int*) * (cps_cnt - 1));// file descriptors holder
     if (pipe_fds == NULL) {
         perror("malloc failure");
-        cleanup(cps_cnt, &cps_argv, NULL, NULL);
+        cleanup(cps_cnt, cps_argv, NULL, NULL);
         return 1;
     }
     for (int i = 0; i < cps_cnt - 1; ++i) {
         pipe_fds[i] = (int*)malloc(sizeof(int) * 2);
         if (pipe_fds[i] == NULL) {
             perror("malloc failure");
-            cleanup(cps_cnt, &cps_argv, &pipe_fds, NULL);
+            cleanup(cps_cnt, cps_argv, pipe_fds, NULL);
             return 1;
         }
     }
@@ -60,13 +60,13 @@ int main(int argc, char** argv)
     pid_t* cps_pid = (pid_t*)malloc(sizeof(pid_t) * cps_cnt);// child processes' pids holder
     if (cps_pid == NULL) {
         perror("malloc failure");
-        cleanup(cps_cnt, &cps_argv, &pipe_fds, NULL);
+        cleanup(cps_cnt, cps_argv, pipe_fds, NULL);
         return 1;
     }
 
-    if (launch_pipeline(cps_cnt, &cps_argv, &pipe_fds, &cps_pid) == 1) {
+    if (launch_pipeline(cps_cnt, cps_argv, pipe_fds, cps_pid) == 1) {
         fprintf(stderr, "%s\n", "Failed to launch all child processes");
-        cleanup(cps_cnt, &cps_argv, &pipe_fds, &cps_pid);
+        cleanup(cps_cnt, cps_argv, pipe_fds, cps_pid);
         return 1;
     }
 
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
             }
         }
     }
-    cleanup(cps_cnt, &cps_argv, &pipe_fds, &cps_pid);
+    cleanup(cps_cnt, cps_argv, pipe_fds, cps_pid);
     return exit_code;
 }
 
@@ -101,7 +101,7 @@ Return:
     0 on success
     1 on failure
 */
-int prevalidate_args(int argc, char*** argv, int* cps_cnt) 
+int prevalidate_args(int argc, char** argv, int* cps_cnt) 
 {
     assert(argc > 0);
     assert(argv != NULL);
@@ -112,7 +112,7 @@ int prevalidate_args(int argc, char*** argv, int* cps_cnt)
     int cps_argc = 0;
     int pipe_cnt = 0;
     for (int i = 1; i < argc; ++i) {
-        if (strcmp((*argv)[i], SEP) == 0) {
+        if (strcmp(argv[i], SEP) == 0) {
             ++pipe_cnt;
             if (cps_argc > 0) {
                 ++(*cps_cnt);
@@ -145,7 +145,7 @@ Return:
     0 on success
     1 on failure
 */
-int parse_args(int argc, char*** argv, char**** cps_argv) 
+int parse_args(int argc, char** argv, char*** cps_argv) 
 {
     assert(argc > 1);
     assert(argv != NULL);
@@ -155,7 +155,7 @@ int parse_args(int argc, char*** argv, char**** cps_argv)
     int cps_beg = 1;
 
     for (int i = 1; i < argc; ++i) {
-        if (strcmp((*argv)[i], SEP) == 0 || i == argc - 1) {
+        if (strcmp(argv[i], SEP) == 0 || i == argc - 1) {
             int cps_argc = i - cps_beg;
             if (i == argc - 1) {
                 ++cps_argc;
@@ -166,10 +166,10 @@ int parse_args(int argc, char*** argv, char**** cps_argv)
                 return 1;
             }
             for (int j = 0; j < cps_argc; ++j) {
-                cps[j] = (*argv)[cps_beg + j];
+                cps[j] = argv[cps_beg + j];
             }
             cps[cps_argc] = NULL;
-            (*cps_argv)[cps_cur] = cps;
+            cps_argv[cps_cur] = cps;
 
             ++cps_cur;
             cps_beg = i + 1;
@@ -192,7 +192,7 @@ Return:
     0 on success
     1 on failure
 */
-int launch_pipeline(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps_pid) 
+int launch_pipeline(int cps_cnt, char*** cps_argv, int** pipe_fds, pid_t* cps_pid) 
 {
     assert(cps_cnt > 0);
     assert(cps_argv != NULL);
@@ -201,7 +201,7 @@ int launch_pipeline(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps
 
     for (int i = 0; i < cps_cnt; ++i) {
         if (i < cps_cnt - 1) {
-            if (pipe((*pipe_fds)[i]) == -1) {
+            if (pipe(pipe_fds[i]) == -1) {
                 perror("pipe failure");
                 return 1;
             }
@@ -212,13 +212,13 @@ int launch_pipeline(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps
             return 1;
         }
         if (pid == 0) {
-            char** args = (*cps_argv)[i];
+            char** args = cps_argv[i];
             if (i < cps_cnt - 1) {
-                if (close((*pipe_fds)[i][0]) == -1) {
+                if (close(pipe_fds[i][0]) == -1) {
                     perror("close failure");
                     return 1;
                 }
-                if (dup2((*pipe_fds)[i][1], 1) == -1) {
+                if (dup2(pipe_fds[i][1], 1) == -1) {
                     perror("dup2 failure");
                     return 1;
                 }
@@ -229,37 +229,37 @@ int launch_pipeline(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps
             }
         }
         if (i < cps_cnt - 1) {
-            if (dup2((*pipe_fds)[i][0], 0) == -1) {
+            if (dup2(pipe_fds[i][0], 0) == -1) {
                 perror("dup2 failure");
                 return 1;
             }
-            if (close((*pipe_fds)[i][1]) == -1) {
+            if (close(pipe_fds[i][1]) == -1) {
                 perror("close failure");
                 return 1;
             }
         }
-        (*cps_pid)[i] = pid;
+        cps_pid[i] = pid;
     }
 
     return 0;
 }
 
-void cleanup(int cps_cnt, char**** cps_argv, int*** pipe_fds, pid_t** cps_pid) 
+void cleanup(int cps_cnt, char*** cps_argv, int** pipe_fds, pid_t* cps_pid) 
 {
     if (cps_argv != NULL) {
         for (int i = 0; i < cps_cnt; ++i) {
-            free((*cps_argv)[i]);
+            free(cps_argv[i]);
         }
-        free(*cps_argv);
+        free(cps_argv);
     }
     if (pipe_fds != NULL) {
         for (int i = 0; i < cps_cnt - 1; ++i) {
-            free((*pipe_fds)[i]);
+            free(pipe_fds[i]);
         }
-        free(*pipe_fds);
+        free(pipe_fds);
     }
     if (cps_pid != NULL) {
-        free(*cps_pid);
+        free(cps_pid);
     }
 }
 
